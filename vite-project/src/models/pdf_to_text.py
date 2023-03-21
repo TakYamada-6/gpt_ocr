@@ -2,11 +2,8 @@ import os
 from pathlib import Path
 from llama_index import download_loader
 
-PDF_FILE = Path(r"\Users\yamad\Downloads\会員検索 ｜ BU2680284 の職務経歴 - ビズリーチ.pdf")
-SAVE_DIR = Path(r'./resumes')
 
-
-def pdf_to_text(pdf_file):
+def load_pdf(pdf_file):
     CJKPDFReader = download_loader("CJKPDFReader")
 
     loader = CJKPDFReader()
@@ -40,9 +37,9 @@ def find_user_name(file_name):
     return user_name
 
 
-def read_pdf(file_name, pdf_file):
+def pdf_to_text(file_name, pdf_file):
     user_name = find_user_name(file_name)
-    resume_text = find_resume(pdf_to_text(pdf_file))
+    resume_text = find_resume(load_pdf(pdf_file))
 
     return user_name, resume_text
 

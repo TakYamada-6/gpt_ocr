@@ -1,10 +1,10 @@
 import tempfile
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict
 
-from read_pdf import read_pdf
-from extract_info import extract_info
+from pydantic import BaseModel
+from pdf_processing import process_pdf
 
 app = FastAPI()
 
@@ -23,30 +23,37 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def read_root():
+    return {"content": "Hello World!"}
+
+
 @app.get("/api")
 def read_root():
-    return {"Hello": "World"}
+    return {"content": "This is API root."}
 
 
-@app.post("/api/upload_pdf/", response_model=Dict[str, str])
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+
+
+class ExtractedInfo(BaseModel):
+    user_name: str
+    summarized_resume: str
+
+
+@app.post("/api/summarize_resume/", response_model=ExtractedInfo)
 async def upload_pdf(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         return {"error": "Invalid file type. Only PDF files are accepted."}
 
-    # PDFファイルのデータを読み込む
-    pdf_data = await file.read()
-    file_name = file.filename
+    user_name, resume, summarized_resume = await process_pdf(file)
 
-    # 一時ファイルを作成し、PDFデータを書き込む
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-        temp_file.write(pdf_data)
-        temp_file_path = temp_file.name
-
-    user_name, resume_text = read_pdf(file_name, temp_file_path)
-    summarize_resume = extract_info(resume_text)
-
-    return {
-        "user_name": user_name,
-        "resume": resume_text,
-        "summarize_resume": summarize_resume,
-    }
+    return ExtractedInfo(
+        user_name=user_name,
+        summarized_resume=summarized_resume,
+    )
